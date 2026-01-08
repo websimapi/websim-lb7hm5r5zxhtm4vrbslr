@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3"
+      crossorigin="anonymous"
+    />
+    <title>Super Mario 64 on the Web!</title>
+    <style>
+      body,
+      html {
+        background-color: #000000;
+        image-rendering: pixelated;
+        margin: 0;
+        padding: 0;
+      }
+      #container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+      canvas {
+        width: 100vw;
+        height: 100vh;
+        cursor: pointer;
+        display: block;
+      }
+
+      /* Mobile touch controls (hidden by default, shown on mobile) */
+      #touch-controls {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        display: none;
+      }
+      .tc-side {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 26vw;
+        max-width: 180px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 10px 6px;
+        box-sizing: border-box;
+        pointer-events: none;
+      }
+      .tc-left {
+        left: 0;
+        align-items: flex-start;
+      }
+      .tc-right {
+        right: 0;
+        align-items: flex-end;
+      }
+      .tc-row {
+        display: flex;
+        gap: 8px;
+        pointer-events: none;
+      }
+      .tc-btn,
+      .tc-stick-inner,
+      .tc-dpad-btn {
+        pointer-events: auto;
+        touch-action: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .tc-btn {
+        min-width: 42px;
+        min-height: 42px;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: rgba(0, 0, 0, 0.45);
+        color: #fff;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+      }
+      .tc-btn:active {
+        transform: scale(0.96);
+        background: rgba(255, 255, 255, 0.14);
+      }
+      .tc-shoulders {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+        pointer-events: none;
+      }
+      .tc-shoulders-right {
+        align-items: flex-end;
+      }
+      .tc-shoulder-btn {
+        border-radius: 14px;
+        padding: 4px 10px;
+        min-width: 52px;
+        min-height: 30px;
+        font-size: 11px;
+      }
+      /* Left movement pad */
+      .tc-stick-wrap {
+        width: 120px;
+        height: 120px;
+        max-width: 40vw;
+        max-height: 40vw;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.12), rgba(0,0,0,0.7));
+        position: relative;
+        margin-left: 8px;
+        pointer-events: auto;
+      }
+      .tc-stick-inner {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 60px;
+        height: 60px;
+        max-width: 24vw;
+        max-height: 24vw;
+        border-radius: 50%;
+        background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2), rgba(0,0,0,0.8));
+        transform: translate(-50%, -50%);
+      }
+      .tc-dpad {
+        position: absolute;
+        inset: 14px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+        pointer-events: none;
+      }
+      .tc-dpad-btn {
+        border-radius: 10px;
+        border: none;
+        background: transparent;
+      }
+      .tc-dpad-btn:active {
+        background: rgba(255, 255, 255, 0.18);
+      }
+      .tc-dpad-up { grid-column: 2 / 3; grid-row: 1 / 2; }
+      .tc-dpad-down { grid-column: 2 / 3; grid-row: 3 / 4; }
+      .tc-dpad-left { grid-column: 1 / 2; grid-row: 2 / 3; }
+      .tc-dpad-right { grid-column: 3 / 4; grid-row: 2 / 3; }
+
+      /* Right buttons: A/B + C-buttons + Start */
+      .tc-face {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-right: 10px;
+        pointer-events: none;
+      }
+      .tc-ab {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-end;
+        pointer-events: none;
+      }
+      .tc-ab .tc-btn {
+        min-width: 48px;
+        min-height: 48px;
+        font-size: 14px;
+      }
+      .tc-a { background: radial-gradient(circle at 30% 30%, #00c853, #005c2f); }
+      .tc-b { background: radial-gradient(circle at 30% 30%, #ff6b35, #7a1b00); }
+      .tc-cpad {
+        display: grid;
+        grid-template-columns: repeat(3, 28px);
+        grid-template-rows: repeat(3, 28px);
+        gap: 4px;
+        pointer-events: none;
+        align-self: center;
+      }
+      .tc-cpad .tc-btn {
+        min-width: 28px;
+        min-height: 28px;
+        font-size: 11px;
+      }
+      .tc-c-up { grid-column: 2 / 3; grid-row: 1 / 2; }
+      .tc-c-down { grid-column: 2 / 3; grid-row: 3 / 4; }
+      .tc-c-left { grid-column: 1 / 2; grid-row: 2 / 3; }
+      .tc-c-right { grid-column: 3 / 4; grid-row: 2 / 3; }
+      .tc-start-wrap {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        pointer-events: none;
+      }
+      .tc-start {
+        min-width: 48px;
+        min-height: 32px;
+        border-radius: 999px;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container text-light" id="controls">
+      <figure>
+        <blockquote class="blockquote">
+          <h1 class="display-6"><strong>Keyboard Controls</strong></h1>
+        </blockquote>
+        <figcaption class="blockquote-footer">
+          Everything is saved automatically: this is not made by me, just for fun to test out websim.ai!
+        </figcaption>
+        <figcaption class="blockquote-footer">
+          Press page down to hide this.
+        </figcaption>
+        <figcaption class="blockquote-footer">
+          Press page up to see this, and the controls.
+        </figcaption>
+        <figcaption class="blockquote-footer">
+          Scroll down to start!
+        </figcaption>  
+        <figcaption class="blockquote-footer">
+          If controls dont work just refresh the page. And click on the game if u want to make it fullscreen!
+        </figcaption>          
+      </figure>
+      <table class="table table-sm text-light" id="keyboard">
+        <thead>
+          <th scope="col"></th>
+          <th scope="col">Keyboard</th>
+        </thead>
+        <tbody>
+          <tr>
+            <td></td>
+            <td>X = A (n64, to jump)</td>
+          </tr>
+          <tr>
+            <td></td>
+            <td>C = B (n64, to punch)</td>
+          </tr>
+          <tr>
+            <td></td>
+            <td>Q - L (what's this used for in the vanilla game?) </td>
+          </tr>
+          <tr>
+            <td></td>
+            <td>Space - Z (n64, crouch)</td>
+          </tr>
+          <tr>
+            <td></td>
+            <td>Enter - Start (n64, the start button) </td>
+          </tr>
+          <tr>
+            <td></td>
+            <td>WASD - Control Camera</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="container">
+      <canvas class="emscripten" id="canvas"></canvas>
+      <div id="touch-controls">
+        <div class="tc-side tc-left">
+          <div class="tc-shoulders">
+            <button class="tc-btn tc-shoulder-btn" data-key="Space" data-code="Space" data-keycode="32">Z</button>
+            <button class="tc-btn tc-shoulder-btn" data-key="q" data-code="KeyQ" data-keycode="81">L</button>
+          </div>
+          <div class="tc-stick-wrap">
+            <div class="tc-stick-inner"></div>
+            <div class="tc-dpad">
+              <button class="tc-dpad-btn tc-dpad-up" data-key="ArrowUp" data-code="ArrowUp" data-keycode="38"></button>
+              <button class="tc-dpad-btn tc-dpad-down" data-key="ArrowDown" data-code="ArrowDown" data-keycode="40"></button>
+              <button class="tc-dpad-btn tc-dpad-left" data-key="ArrowLeft" data-code="ArrowLeft" data-keycode="37"></button>
+              <button class="tc-dpad-btn tc-dpad-right" data-key="ArrowRight" data-code="ArrowRight" data-keycode="39"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tc-side tc-right">
+          <div class="tc-shoulders tc-shoulders-right">
+            <button class="tc-btn tc-shoulder-btn" data-key="e" data-code="KeyE" data-keycode="69">R</button>
+          </div>
+          <div class="tc-face">
+            <div class="tc-ab">
+              <button class="tc-btn tc-b" data-key="c" data-code="KeyC" data-keycode="67">B</button>
+              <button class="tc-btn tc-a" data-key="x" data-code="KeyX" data-keycode="88">A</button>
+            </div>
+            <div class="tc-cpad">
+              <button class="tc-btn tc-c-up" data-key="w" data-code="KeyW" data-keycode="87">C^</button>
+              <button class="tc-btn tc-c-down" data-key="s" data-code="KeyS" data-keycode="83">Cv</button>
+              <button class="tc-btn tc-c-left" data-key="a" data-code="KeyA" data-keycode="65">C&lt;</button>
+              <button class="tc-btn tc-c-right" data-key="d" data-code="KeyD" data-keycode="68">C&gt;</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tc-start-wrap">
+          <button class="tc-btn tc-start" data-key="Enter" data-code="Enter" data-keycode="13">Start</button>
+        </div>
+      </div>
+    </div>
+    <script type="text/javascript">
+      var Module = {
+        preRun: [],
+        postRun: [],
+        print: (function () {
+          return function (text) {
+            if (arguments.length > 1)
+              text = Array.prototype.slice.call(arguments).join(" ");
+            console.log(text);
+          };
+        })(),
+        printErr: function (text) {
+          if (arguments.length > 1)
+            text = Array.prototype.slice.call(arguments).join(" ");
+          console.error(text);
+        },
+        canvas: (function () {
+          var canvas = document.getElementById("canvas");
+          var container = document.getElementById("container");
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+          canvas.addEventListener(
+            "webglcontextlost",
+            function (e) {
+              alert("WebGL context lost. You will need to reload the page.");
+              e.preventDefault();
+            },
+            false
+          );
+
+          // Add fullscreen functionality on click (fullscreen the container so overlay stays visible)
+          canvas.addEventListener("click", function () {
+            if (!document.fullscreenElement) {
+              if (container.requestFullscreen) {
+                container.requestFullscreen();
+              } else if (container.webkitRequestFullscreen) {
+                container.webkitRequestFullscreen();
+              } else if (container.msRequestFullscreen) {
+                container.msRequestFullscreen();
+              }
+            }
+          });
+
+          return canvas;
+        })(),
+        setStatus: function (text) {},
+      };
+    </script>
+
+    <script>
+      // Virtual controller: send keyboard events for touch buttons
+      (function () {
+        // Simple mobile detection
+        var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                       (navigator.maxTouchPoints > 0 && /Macintosh/i.test(navigator.userAgent)); // includes iPad Pro
+
+        if (isMobile) {
+          document.getElementById('touch-controls').style.display = 'block';
+        }
+
+        function sendKey(type, key, code, keyCode) {
+          var eventInit = {
+            key: key,
+            code: code,
+            keyCode: keyCode,
+            which: keyCode,
+            bubbles: true,
+            cancelable: true
+          };
+          var e = new KeyboardEvent(type, eventInit);
+          // Some browsers treat keyCode/which as read-only, but Emscripten
+          // typically reads whichever is present.
+          Object.defineProperty(e, "keyCode", { get: function () { return keyCode; } });
+          Object.defineProperty(e, "which", { get: function () { return keyCode; } });
+          window.dispatchEvent(e);
+        }
+
+        function attachButton(el) {
+          var key = el.getAttribute("data-key");
+          var code = el.getAttribute("data-code");
+          var keyCode = parseInt(el.getAttribute("data-keycode"), 10);
+          if (!key || !code || !keyCode) return;
+
+          var active = false;
+
+          function down(ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (active) return;
+            active = true;
+            sendKey("keydown", key, code, keyCode);
+          }
+
+          function up(ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (!active) return;
+            active = false;
+            sendKey("keyup", key, code, keyCode);
+          }
+
+          el.addEventListener("touchstart", down, { passive: false });
+          el.addEventListener("touchend", up, { passive: false });
+          el.addEventListener("touchcancel", up, { passive: false });
+          el.addEventListener("mousedown", down);
+          window.addEventListener("mouseup", up);
+        }
+
+        if (isMobile) {
+          var buttons = document.querySelectorAll(
+            "#touch-controls [data-key][data-code][data-keycode]"
+          );
+          buttons.forEach(attachButton);
+
+          // Analog stick: drag-based joystick that follows finger/mouse
+          var stickWrap = document.querySelector(".tc-stick-wrap");
+          var stickInner = document.querySelector(".tc-stick-inner");
+          if (stickWrap && stickInner) {
+            var stickActive = false;
+            var stickTouchId = null;
+            var maxOffset = 0;
+
+            // Current digital directions derived from the stick
+            var dirState = { up: false, down: false, left: false, right: false };
+
+            function updateMaxOffset() {
+              maxOffset = (stickWrap.clientWidth - stickInner.clientWidth) / 2;
+              if (maxOffset < 0) maxOffset = 0;
+            }
+            updateMaxOffset();
+            window.addEventListener("resize", updateMaxOffset);
+
+            function centerStick() {
+              stickInner.style.transition = "transform 120ms ease-out";
+              stickInner.style.transform = "translate(calc(-50%), calc(-50%))";
+              setTimeout(function () {
+                stickInner.style.transition = "";
+              }, 130);
+
+              // Release any active movement keys
+              updateDirections(0, 0, true);
+            }
+
+            // Map stick offset -> digital arrow keys
+            function updateDirections(dx, dy, forceRelease) {
+              if (!maxOffset) {
+                return;
+              }
+
+              var nx = dx / maxOffset;
+              var ny = dy / maxOffset;
+              var mag = Math.sqrt(nx * nx + ny * ny);
+              var threshold = 0.35;
+
+              if (forceRelease || mag < threshold) {
+                setDir(false, false, false, false);
+                return;
+              }
+
+              var up = ny < -threshold;
+              var down = ny > threshold;
+              var left = nx < -threshold;
+              var right = nx > threshold;
+
+              setDir(up, down, left, right);
+            }
+
+            function setDir(up, down, left, right) {
+              // Helper to send key changes
+              function toggle(dirName, desired, key, code, keyCode) {
+                var current = dirState[dirName];
+                if (desired !== current) {
+                  dirState[dirName] = desired;
+                  if (desired) {
+                    sendKey("keydown", key, code, keyCode);
+                  } else {
+                    sendKey("keyup", key, code, keyCode);
+                  }
+                }
+              }
+
+              toggle("up", up, "ArrowUp", "ArrowUp", 38);
+              toggle("down", down, "ArrowDown", "ArrowDown", 40);
+              toggle("left", left, "ArrowLeft", "ArrowLeft", 37);
+              toggle("right", right, "ArrowRight", "ArrowRight", 39);
+            }
+
+            function handleStickMove(clientX, clientY) {
+              var rect = stickWrap.getBoundingClientRect();
+              var dx = clientX - (rect.left + rect.width / 2);
+              var dy = clientY - (rect.top + rect.height / 2);
+
+              var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+              if (dist > maxOffset && maxOffset > 0) {
+                var scale = maxOffset / dist;
+                dx *= scale;
+                dy *= scale;
+              }
+
+              stickInner.style.transform =
+                "translate(calc(-50% + " + dx + "px), calc(-50% + " + dy + "px))";
+
+              updateDirections(dx, dy, false);
+            }
+
+            // Touch controls: drag anywhere on the stick area
+            stickWrap.addEventListener(
+              "touchstart",
+              function (ev) {
+                ev.preventDefault();
+                if (stickActive) return;
+                var t = ev.changedTouches[0];
+                stickActive = true;
+                stickTouchId = t.identifier;
+                handleStickMove(t.clientX, t.clientY);
+              },
+              { passive: false }
+            );
+
+            stickWrap.addEventListener(
+              "touchmove",
+              function (ev) {
+                if (!stickActive) return;
+                var touches = ev.changedTouches;
+                for (var i = 0; i < touches.length; i++) {
+                  var t = touches[i];
+                  if (t.identifier === stickTouchId) {
+                    ev.preventDefault();
+                    handleStickMove(t.clientX, t.clientY);
+                    break;
+                  }
+                }
+              },
+              { passive: false }
+            );
+
+            stickWrap.addEventListener(
+              "touchend",
+              function (ev) {
+                if (!stickActive) return;
+                var touches = ev.changedTouches;
+                for (var i = 0; i < touches.length; i++) {
+                  var t = touches[i];
+                  if (t.identifier === stickTouchId) {
+                    ev.preventDefault();
+                    stickActive = false;
+                    stickTouchId = null;
+                    centerStick();
+                    break;
+                  }
+                }
+              },
+              { passive: false }
+            );
+
+            stickWrap.addEventListener(
+              "touchcancel",
+              function (ev) {
+                if (!stickActive) return;
+                stickActive = false;
+                stickTouchId = null;
+                centerStick();
+              },
+              { passive: false }
+            );
+
+            // Mouse controls for desktop testing
+            var mouseActive = false;
+
+            stickWrap.addEventListener("mousedown", function (ev) {
+              ev.preventDefault();
+              mouseActive = true;
+              handleStickMove(ev.clientX, ev.clientY);
+            });
+
+            window.addEventListener("mousemove", function (ev) {
+              if (!mouseActive) return;
+              ev.preventDefault();
+              handleStickMove(ev.clientX, ev.clientY);
+            });
+
+            window.addEventListener("mouseup", function () {
+              if (!mouseActive) return;
+              mouseActive = false;
+              centerStick();
+            });
+
+            // Initial center
+            centerStick();
+          }
+        }
+      })();
+    </script>
+
+    <script async type="text/javascript" src="sm64.us.f3dex2e.js"></script>
+    <script></script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
